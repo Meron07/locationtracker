@@ -1,0 +1,26 @@
+FROM node:20-alpine
+
+# openssl is needed to generate JWT RSA key pair on first run
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+# Install dependencies first (layer caching)
+COPY package*.json ./
+RUN npm install
+
+# Copy source
+COPY . .
+
+EXPOSE 3000
+
+# Generate RSA keys if they don't exist, then start the app
+CMD sh -c ' \
+  mkdir -p /app/keys && \
+  if [ ! -f /app/keys/private.key ]; then \
+    echo "Generating RSA key pair for JWT..." && \
+    openssl genrsa -out /app/keys/private.key 2048 && \
+    openssl rsa -in /app/keys/private.key -pubout -out /app/keys/public.key && \
+    echo "Keys generated at /app/keys/"; \
+  fi && \
+  npm run start:dev'

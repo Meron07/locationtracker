@@ -46,7 +46,7 @@ import { AdminModule } from './modules/admin/admin.module';
         password: config.get('DB_PASSWORD'),
         ssl: config.get('DB_SSL') === 'true' ? { rejectUnauthorized: true } : false,
         autoLoadEntities: true,
-        synchronize: false,     // NEVER true in production; use migrations
+        synchronize: config.get('NODE_ENV') === 'development', // auto-sync schema in dev; NEVER in production
         logging: config.get('NODE_ENV') === 'development',
       }),
     }),

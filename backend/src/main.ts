@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
-import * as Sentry from '@sentry/node';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -48,10 +47,16 @@ async function bootstrap() {
   // ── API prefix ────────────────────────────────────────────────────────────
   app.setGlobalPrefix('v1');
 
-  // ── Sentry error monitoring ───────────────────────────────────────────────
+  // ── Sentry error monitoring (optional — only if @sentry/node is installed) ──
   if (process.env.SENTRY_DSN) {
-    Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV });
-    app.use(Sentry.Handlers.requestHandler());
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Sentry = require('@sentry/node');
+      Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV });
+      app.use(Sentry.Handlers.requestHandler());
+    } catch {
+      // @sentry/node not installed — monitoring disabled
+    }
   }
 
   await app.listen(process.env.PORT ?? 3000);
