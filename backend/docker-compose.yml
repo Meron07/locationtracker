@@ -1,0 +1,63 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: safecircle_postgres
+    environment:
+      POSTGRES_DB: safecircle
+      POSTGRES_USER: safecircle_app
+      POSTGRES_PASSWORD: dev_password_only
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U safecircle_app -d safecircle']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: safecircle_redis
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: safecircle_mailhog
+    ports:
+      - '1025:1025'  # SMTP
+      - '8025:8025'  # Web UI
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: safecircle_backend
+    env_file: .env
+    ports:
+      - '3000:3000'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run start:dev
+
+volumes:
+  postgres_data:
+  redis_data:
