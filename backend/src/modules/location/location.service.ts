@@ -35,8 +35,8 @@ export class LocationService {
     await this.eventRepo.save(
       this.eventRepo.create({
         userId,
-        encryptedLat,
-        encryptedLng,
+        encLat: encryptedLat,
+        encLng: encryptedLng,
         accuracy: dto.accuracy,
         altitude: dto.altitude,
         speed: dto.speed,
@@ -71,7 +71,7 @@ export class LocationService {
    * Returns current location of all users who are actively sharing with viewerId.
    * Coordinates are rounded to ~10 meter precision before returning.
    */
-  async getMapFeed(viewerId: string) {
+  async getMapFeed(viewerId: string, _circleId?: string) {
     // Get all active shares pointing TO this viewer
     const shares = await this.shareRepo.find({
       where: { viewerId, status: 'active' },
@@ -96,8 +96,8 @@ export class LocationService {
           };
         }
 
-        const lat = this.encryptionService.decryptCoordinate(latest.encryptedLat);
-        const lng = this.encryptionService.decryptCoordinate(latest.encryptedLng);
+        const lat = this.encryptionService.decryptCoordinate(latest.encLat);
+        const lng = this.encryptionService.decryptCoordinate(latest.encLng);
 
         return {
           user_id: share.sharerId,
@@ -124,8 +124,8 @@ export class LocationService {
   async createShareRequest(
     sharerId: string,
     viewerId: string,
-    duration: string,
-    shareBattery = false,
+    duration?: string,
+    precision = 'exact',
   ): Promise<LocationShare> {
     if (sharerId === viewerId) throw new BadRequestException('Cannot share with yourself');
 
@@ -143,8 +143,7 @@ export class LocationService {
       sharerId,
       viewerId,
       status: 'pending',
-      duration,
-      shareBattery,
+      precision: precision as any,
       expiresAt,
     });
 
@@ -152,15 +151,15 @@ export class LocationService {
   }
 
   async respondToShareRequest(
-    shareId: string,
     viewerId: string,
-    action: 'accept' | 'decline',
+    shareId: string,
+    accept: boolean,
   ): Promise<LocationShare> {
     const share = await this.shareRepo.findOne({ where: { id: shareId, viewerId } });
     if (!share) throw new NotFoundException('Share request not found');
     if (share.status !== 'pending') throw new BadRequestException('Share is not in pending state');
 
-    share.status = action === 'accept' ? 'active' : 'revoked';
+    share.status = accept ? 'active' : 'revoked';
     return this.shareRepo.save(share);
   }
 
@@ -177,14 +176,54 @@ export class LocationService {
     await this.shareRepo.save(share);
   }
 
-  async pauseShare(shareId: string, sharerId: string, pausedUntil: Date): Promise<LocationShare> {
+  async pauseShare(sharerId: string, shareId: string): Promise<LocationShare> {
     const share = await this.shareRepo.findOne({ where: { id: shareId, sharerId } });
     if (!share) throw new NotFoundException('Share not found');
     if (share.status !== 'active') throw new BadRequestException('Share is not active');
 
     share.status = 'paused';
-    share.pausedUntil = pausedUntil;
+    share.pausedUntil = new Date(Date.now() + 60 * 60 * 1000); // default 1hr pause
     return this.shareRepo.save(share);
+  }
+
+  async resumeShare(sharerId: string, shareId: string): Promise<LocationShare> {
+    const share = await this.shareRepo.findOne({ where: { id: shareId, sharerId } });
+    if (!share) throw new NotFoundException('Share not found');
+    if (share.status !== 'paused') throw new BadRequestException('Share is not paused');
+
+    share.status = 'active';
+    share.pausedUntil = null;
+    return this.shareRepo.save(share);
+  }
+
+  async getHistory(
+    viewerId: string,
+    targetUserId: string,
+    from?: string,
+    to?: string,
+  ): Promise<LocationEvent[]> {
+    const share = await this.shareRepo.findOne({
+      where: { sharerId: targetUserId, viewerId, status: 'active' },
+    });
+    if (!share) throw new ForbiddenException('No active share from this user');
+
+    const qb = this.eventRepo
+      .createQueryBuilder('e')
+      .where('e.userId = :userId', { userId: targetUserId })
+      .orderBy('e.recordedAt', 'DESC')
+      .take(500);
+
+    if (from) qb.andWhere('e.recordedAt >= :from', { from: new Date(from) });
+    if (to) qb.andWhere('e.recordedAt <= :to', { to: new Date(to) });
+
+    const events = await qb.getMany();
+    return events.map((e) => ({
+      ...e,
+      encLat: undefined,
+      encLng: undefined,
+      latitude: this.encryptionService.decryptCoordinate(e.encLat),
+      longitude: this.encryptionService.decryptCoordinate(e.encLng),
+    } as any));
   }
 
   async stopAllSharing(sharerId: string): Promise<{ revokedCount: number }> {

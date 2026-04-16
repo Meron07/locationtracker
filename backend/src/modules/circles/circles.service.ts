@@ -35,6 +35,53 @@ export class CirclesService {
     return saved;
   }
 
+  async update(
+    requesterId: string,
+    circleId: string,
+    data: { name?: string; description?: string },
+  ): Promise<Circle> {
+    await this.assertAdminOrOwner(circleId, requesterId);
+    const circle = await this.circleRepo.findOneOrFail({ where: { id: circleId, isActive: true } });
+    if (data.name !== undefined) circle.name = data.name;
+    if (data.description !== undefined) circle.description = data.description;
+    return this.circleRepo.save(circle);
+  }
+
+  async disband(requesterId: string, circleId: string): Promise<void> {
+    const m = await this.assertActiveMember(circleId, requesterId);
+    if (m.role !== 'owner') throw new ForbiddenException('Only the owner can disband the circle');
+    const circle = await this.circleRepo.findOneOrFail({ where: { id: circleId } });
+    circle.isActive = false;
+    await this.circleRepo.save(circle);
+  }
+
+  async setMemberRole(
+    requesterId: string,
+    circleId: string,
+    memberId: string,
+    role: string,
+  ): Promise<CircleMembership> {
+    await this.assertAdminOrOwner(circleId, requesterId);
+    const target = await this.memberRepo.findOne({ where: { circleId, userId: memberId, status: 'active' } });
+    if (!target) throw new NotFoundException('Member not found');
+    if (target.role === 'owner') throw new ForbiddenException('Cannot change owner role');
+    target.role = role as CircleMembership['role'];
+    return this.memberRepo.save(target);
+  }
+
+  async listInvites(requesterId: string, circleId: string): Promise<CircleMembership[]> {
+    await this.assertAdminOrOwner(circleId, requesterId);
+    return this.memberRepo.find({ where: { circleId, status: 'pending' } });
+  }
+
+  async revokeInvite(requesterId: string, circleId: string, inviteId: string): Promise<void> {
+    await this.assertAdminOrOwner(circleId, requesterId);
+    const invite = await this.memberRepo.findOne({ where: { id: inviteId, circleId, status: 'pending' } });
+    if (!invite) throw new NotFoundException('Invite not found');
+    invite.status = 'removed';
+    await this.memberRepo.save(invite);
+  }
+
   async getUserCircles(userId: string) {
     return this.memberRepo.find({
       where: { userId, status: 'active' },

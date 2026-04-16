@@ -29,8 +29,8 @@ export class UsersController {
     await this.auditService.log({
       actorId: req.user.id,
       action: 'profile_updated',
-      result: 'success',
-      ip: req.ip,
+      resource: 'user_profile',
+      ipAddress: req.ip,
     });
     return updated;
   }
@@ -50,7 +50,7 @@ export class UsersController {
     }),
   )
   async uploadAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
-    const url = await this.storageService.uploadAvatar(req.user.id, file);
+    const url = await this.storageService.uploadAvatar(req.user.id, file.buffer, file.mimetype);
     const updated = await this.usersService.updateAvatar(req.user.id, url);
     return { avatar_url: updated.avatarUrl };
   }
@@ -64,8 +64,8 @@ export class UsersController {
     await this.auditService.log({
       actorId: req.user.id,
       action: 'account_deletion_requested',
-      result: 'success',
-      ip: req.ip,
+      resource: 'user_account',
+      ipAddress: req.ip,
       metadata: { reason: body.reason },
     });
     await this.usersService.requestDeletion(req.user.id);

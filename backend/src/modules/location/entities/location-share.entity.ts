@@ -61,6 +61,10 @@ export class LocationShare {
   @Column({ name: 'invite_token', nullable: true, unique: true })
   inviteToken: string | null;
 
+  /** UTC timestamp the sharer paused sharing until (null if not paused) */
+  @Column({ name: 'paused_until', type: 'timestamp with time zone', nullable: true })
+  pausedUntil: Date | null;
+
   /** UTC timestamp when the viewer last explicitly accepted */
   @Column({ name: 'accepted_at', type: 'timestamp with time zone', nullable: true })
   acceptedAt: Date | null;

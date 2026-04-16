@@ -35,7 +35,7 @@ export class LocationController {
    */
   @Get('feed')
   async feed(@Req() req: any, @Query('circle_id') circleId?: string) {
-    return this.locationService.getMapFeed(req.user.id, circleId);
+    return this.locationService.getMapFeed(req.user.id);
   }
 
   // ── Share management ─────────────────────────────────────────────────────
@@ -73,6 +73,7 @@ export class LocationController {
     return this.locationService.respondToShareRequest(req.user.id, shareId, accept);
   }
 
+
   /**
    * PATCH /v1/location/shares/:shareId/pause
    * Temporarily hide location from viewer without revoking consent.
@@ -97,6 +98,7 @@ export class LocationController {
     return this.locationService.resumeShare(req.user.id, shareId);
   }
 
+
   /**
    * DELETE /v1/location/shares/:shareId
    * Permanently revoke a share (either party can revoke).
@@ -106,7 +108,7 @@ export class LocationController {
     @Req() req: any,
     @Param('shareId', new ParseUUIDPipe()) shareId: string,
   ) {
-    return this.locationService.revokeShare(req.user.id, shareId);
+    return this.locationService.revokeShare(shareId, req.user.id);
   }
 
   /**

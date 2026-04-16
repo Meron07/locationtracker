@@ -16,7 +16,7 @@ export class CirclesController {
   /** GET /v1/circles — list circles the caller belongs to */
   @Get()
   list(@Req() req: any) {
-    return this.circlesService.listForUser(req.user.id);
+    return this.circlesService.getUserCircles(req.user.id);
   }
 
   /** POST /v1/circles — create a new circle */
@@ -29,7 +29,7 @@ export class CirclesController {
   /** GET /v1/circles/:id — get circle details */
   @Get(':id')
   findOne(@Req() req: any, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.circlesService.findOneForMember(req.user.id, id);
+    return this.circlesService.findById(id, req.user.id);
   }
 
   /** PATCH /v1/circles/:id — update name/color/description */
@@ -41,7 +41,7 @@ export class CirclesController {
     @Body('color') color?: string,
     @Body('description') description?: string,
   ) {
-    return this.circlesService.update(req.user.id, id, { name, color, description });
+    return this.circlesService.update(req.user.id, id, { name, description });
   }
 
   /** DELETE /v1/circles/:id — disband circle (owner only) */
@@ -56,7 +56,7 @@ export class CirclesController {
   /** GET /v1/circles/:id/members */
   @Get(':id/members')
   members(@Req() req: any, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.circlesService.listMembers(req.user.id, id);
+    return this.circlesService.getMembers(id, req.user.id);
   }
 
   /** PATCH /v1/circles/:id/members/:memberId/role */
@@ -78,14 +78,14 @@ export class CirclesController {
     @Param('id', new ParseUUIDPipe()) circleId: string,
     @Param('memberId', new ParseUUIDPipe()) memberId: string,
   ) {
-    await this.circlesService.removeMember(req.user.id, circleId, memberId);
+    await this.circlesService.removeMember(circleId, memberId, req.user.id);
   }
 
   /** DELETE /v1/circles/:id/members/me — leave circle */
   @Delete(':id/leave')
   @HttpCode(HttpStatus.NO_CONTENT)
   async leave(@Req() req: any, @Param('id', new ParseUUIDPipe()) id: string) {
-    await this.circlesService.leaveCircle(req.user.id, id);
+    await this.circlesService.leaveCircle(id, req.user.id);
   }
 
   // ── Invites ──────────────────────────────────────────────────────────────
@@ -99,14 +99,14 @@ export class CirclesController {
     @Body('expires_in_hours') expiresInHours?: number,
     @Body('max_uses') maxUses?: number,
   ) {
-    return this.circlesService.createInvite(req.user.id, circleId, expiresInHours, maxUses);
+    return this.circlesService.createInvite(circleId, req.user.id, expiresInHours);
   }
 
   /** POST /v1/circles/join — accept an invite by token */
   @Post('join')
   @Throttle({ default: { limit: 20, ttl: 300000 } })
   joinByToken(@Req() req: any, @Body('token') token: string) {
-    return this.circlesService.acceptInvite(req.user.id, token);
+    return this.circlesService.acceptInvite(token, req.user.id);
   }
 
   /** GET /v1/circles/:id/invites — list active invite codes (admin/owner) */
