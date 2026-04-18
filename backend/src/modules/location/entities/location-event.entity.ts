@@ -82,6 +82,10 @@ export class LocationEvent {
   @Column({ name: 'is_charging', type: 'boolean', nullable: true })
   isCharging: boolean | null;
 
+  /** Location source: 'gps' | 'network' | 'passive' | 'manual' */
+  @Column({ type: 'text', default: 'gps' })
+  source: string;
+
   /** Unix timestamp (ms) from device — used to order events correctly */
   @Column({ name: 'recorded_at', type: 'timestamp with time zone' })
   @Index()
