@@ -174,11 +174,11 @@ export class SosService {
     event: string,
     data: unknown,
   ) {
-    const circles = await this.circlesService.listForUser(userId);
+    const memberships = await this.circlesService.getUserCircles(userId);
     const contactIds = new Set<string>();
 
-    for (const circle of circles) {
-      const members = await this.circlesService.listMembers(userId, circle.id);
+    for (const membership of memberships) {
+      const members = await this.circlesService.getMembers(membership.circleId, userId);
       for (const m of members) {
         if (m.userId !== userId) contactIds.add(m.userId);
       }

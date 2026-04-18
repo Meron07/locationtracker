@@ -35,7 +35,7 @@ export class LocationController {
    */
   @Get('feed')
   async feed(@Req() req: any, @Query('circle_id') circleId?: string) {
-    return this.locationService.getMapFeed(req.user.id);
+    return this.locationService.getMapFeed(req.user.id, circleId);
   }
 
   // ── Share management ─────────────────────────────────────────────────────
